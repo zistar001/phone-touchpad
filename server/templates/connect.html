@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>无线触控板 - 连接</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #0a0a0f 0%, #1a1a2e 100%);
+            color: #fff;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 16px;
+        }
+        .container {
+            width: min(560px, 100%);
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 14px;
+            padding: 16px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.35);
+        }
+        h1 {
+            font-size: 24px;
+            margin-bottom: 6px;
+            background: linear-gradient(90deg, #00d4ff, #7b2fff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-align: center;
+        }
+        .subtitle {
+            color: rgba(255, 255, 255, 0.65);
+            font-size: 13px;
+            margin-bottom: 14px;
+            text-align: center;
+        }
+        .main {
+            display: grid;
+            grid-template-columns: 170px 1fr;
+            gap: 14px;
+            align-items: start;
+        }
+        .qrcode-box {
+            background: white;
+            padding: 10px;
+            border-radius: 10px;
+        }
+        #qrcode {
+            width: 150px;
+            height: 150px;
+            display: block;
+        }
+        .panel {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            min-width: 0;
+        }
+        .ip-address {
+            font-size: 20px;
+            font-weight: bold;
+            color: #00ff88;
+            font-family: 'Consolas', monospace;
+            letter-spacing: 1px;
+        }
+        .url {
+            font-size: 13px;
+            color: rgba(255, 255, 255, 0.6);
+            word-break: break-all;
+        }
+        .hint {
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.55);
+        }
+        .status {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 10px;
+            background: rgba(0, 255, 136, 0.1);
+            border: 1px solid rgba(0, 255, 136, 0.3);
+            border-radius: 16px;
+            font-size: 12px;
+            color: #00ff88;
+            width: fit-content;
+        }
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            background: #00ff88;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+        .row {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        .input {
+            flex: 1;
+            min-width: 0;
+            height: 36px;
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            background: rgba(255, 255, 255, 0.06);
+            color: #fff;
+            padding: 0 10px;
+            outline: none;
+            font-size: 13px;
+        }
+        .btn {
+            height: 36px;
+            padding: 0 14px;
+            background: linear-gradient(135deg, #00d4ff, #7b2fff);
+            color: white;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 600;
+            border: none;
+            cursor: pointer;
+        }
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        .section-title {
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.7);
+            margin-bottom: 4px;
+        }
+        .notice {
+            margin-top: 10px;
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.45);
+            text-align: center;
+        }
+        .docs {
+            margin-top: 10px;
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            padding: 10px 12px;
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.75);
+            line-height: 1.6;
+        }
+        .docs strong {
+            color: #00d4ff;
+        }
+        .docs ul {
+            margin: 4px 0 8px 16px;
+        }
+        .message {
+            font-size: 12px;
+            min-height: 16px;
+            color: #00ff88;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        @media (max-width: 560px) {
+            .main {
+                grid-template-columns: 1fr;
+                justify-items: center;
+            }
+            .panel {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>无线触控板</h1>
+        <p class="subtitle">手机扫码连接，电脑端可设置文件上传目录</p>
+
+        <div class="main">
+            <div class="qrcode-box">
+                <img id="qrcode" src="" alt="连接二维码">
+            </div>
+
+            <div class="panel">
+                <div class="ip-address" id="ip">正在获取IP...</div>
+                <div class="url" id="url">http://{{ request.host }}/</div>
+                <div class="hint">请确保手机和电脑在同一局域网</div>
+
+                <div class="row">
+                    <div class="status">
+                        <span class="status-dot"></span>
+                        <span>服务运行中</span>
+                    </div>
+                    <button class="btn btn-secondary" onclick="copyUrl()">复制链接</button>
+                </div>
+
+                <div>
+                    <div class="section-title">文件上传保存目录</div>
+                    <div class="row">
+                        <input class="input" id="uploadDirInput" placeholder="例如 D:\\uploads">
+                        <button class="btn btn-secondary" id="pickUploadDirBtn">选择目录</button>
+                        <button class="btn" id="saveUploadDirBtn">保存</button>
+                    </div>
+                    <div class="message" id="uploadDirMsg"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="docs">
+            <div><strong>使用说明</strong></div>
+            <ul>
+                <li>手机和电脑连接同一 WiFi，手机扫码即可进入触控板。</li>
+                <li>单指滑动移动鼠标，点击左/右区域触发左右键，双指滑动滚轮。</li>
+            </ul>
+            <div><strong>注意事项</strong></div>
+            <ul>
+                <li>若被防火墙拦截，请允许程序访问 4000/5000 端口。</li>
+                <li>关闭浏览器不会停止服务，退出请在系统托盘操作。</li>
+            </ul>
+        </div>
+
+        <p class="notice">托盘图标常驻后台运行，右键托盘可退出程序</p>
+    </div>
+
+    <script>
+        const uploadDirInput = document.getElementById('uploadDirInput');
+        const uploadDirMsg = document.getElementById('uploadDirMsg');
+        const saveUploadDirBtn = document.getElementById('saveUploadDirBtn');
+        const pickUploadDirBtn = document.getElementById('pickUploadDirBtn');
+
+        fetch('/qrcode')
+            .then(r => r.json())
+            .then(data => {
+                document.getElementById('qrcode').src = 'data:image/png;base64,' + data.qrcode;
+                document.getElementById('ip').textContent = data.ip;
+                document.getElementById('url').textContent = data.url;
+            })
+            .catch(err => {
+                console.error('Failed to load QR code:', err);
+                document.getElementById('ip').textContent = '获取失败';
+            });
+
+        fetch('/upload-dir')
+            .then(r => r.json())
+            .then(data => {
+                uploadDirInput.value = data.path || '';
+            })
+            .catch(() => {
+                uploadDirMsg.style.color = '#ff4466';
+                uploadDirMsg.textContent = '加载目录失败';
+            });
+
+        function copyUrl() {
+            const url = document.getElementById('url').textContent;
+            navigator.clipboard.writeText(url).then(() => {
+                uploadDirMsg.style.color = '#00ff88';
+                uploadDirMsg.textContent = '链接已复制到剪贴板';
+            });
+        }
+
+        saveUploadDirBtn.addEventListener('click', function() {
+            const path = uploadDirInput.value.trim();
+            if (!path) {
+                uploadDirMsg.style.color = '#ff4466';
+                uploadDirMsg.textContent = '请输入目录路径';
+                return;
+            }
+
+            fetch('/upload-dir', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ path })
+            })
+            .then(async r => {
+                const data = await r.json();
+                if (!r.ok || !data.ok) {
+                    throw new Error(data.error || '保存失败');
+                }
+                uploadDirInput.value = data.path;
+                uploadDirMsg.style.color = '#00ff88';
+                uploadDirMsg.textContent = '目录已保存';
+            })
+            .catch(err => {
+                uploadDirMsg.style.color = '#ff4466';
+                uploadDirMsg.textContent = err.message || '保存失败';
+            });
+        });
+
+        pickUploadDirBtn.addEventListener('click', function() {
+            uploadDirMsg.style.color = 'rgba(255,255,255,0.75)';
+            uploadDirMsg.textContent = '请在弹出的系统窗口中选择目录...';
+
+            fetch('/pick-upload-dir', { method: 'POST' })
+                .then(async r => {
+                    const data = await r.json();
+                    if (!r.ok || !data.ok) {
+                        throw new Error(data.error || '选择目录失败');
+                    }
+                    uploadDirInput.value = data.path;
+                    uploadDirMsg.style.color = '#00ff88';
+                    uploadDirMsg.textContent = '目录已更新';
+                })
+                .catch(err => {
+                    uploadDirMsg.style.color = '#ff4466';
+                    uploadDirMsg.textContent = err.message || '选择目录失败';
+                });
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,7 @@
+websockets
+pywin32
+PyAutoGUI
+Flask
+qrcode
+Pillow
+pystray

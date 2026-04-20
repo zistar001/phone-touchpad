@@ -1,0 +1,1741 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>无线触控板</title>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Noto+Sans+SC:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-dark: #0a0a0f;
+            --bg-card: rgba(20, 20, 30, 0.9);
+            --glass: rgba(255, 255, 255, 0.05);
+            --glass-border: rgba(255, 255, 255, 0.15);
+            --primary: #00d4ff;
+            --secondary: #7b2fff;
+            --success: #00ff88;
+            --danger: #ff4466;
+            --text: #ffffff;
+            --text-dim: rgba(255, 255, 255, 0.6);
+            --glow: 0 0 20px rgba(0, 212, 255, 0.4);
+            --touchpad-left-ratio: 65%;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+        body {
+            font-family: 'Noto Sans SC', sans-serif;
+            background: var(--bg-dark);
+            color: var(--text);
+            min-height: 100dvh;
+            overflow: hidden;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        /* 主容器 */
+        .app {
+            display: flex;
+            flex-direction: column;
+            height: 100dvh;
+            padding: 0 8px 8px 8px;
+        }
+
+        /* 顶部栏 */
+        .top-bar {
+            position: absolute;
+            top: 8px;
+            left: 8px;
+            right: 8px;
+            height: 44px;
+            padding: 8px 12px;
+            background: var(--bg-card);
+            border-radius: 12px;
+            border: 1px solid var(--glass-border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 10;
+        }
+
+        .status {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 12px;
+            color: var(--text-dim);
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--danger);
+        }
+        .status-dot.on { background: var(--success); }
+
+        /* 菜单 */
+        .menu-wrap { position: relative; }
+        .menu-btn {
+            background: var(--glass);
+            border: 1px solid var(--glass-border);
+            border-radius: 8px;
+            padding: 6px 12px;
+            font-size: 16px;
+            color: var(--text);
+            cursor: pointer;
+        }
+
+        .dropdown {
+            display: none;
+            position: absolute;
+            top: 100%;
+            right: 0;
+            margin-top: 6px;
+            background: var(--bg-card);
+            border: 1px solid var(--glass-border);
+            border-radius: 10px;
+            overflow: hidden;
+            min-width: 100px;
+            z-index: 100;
+        }
+        .dropdown.open { display: block; }
+
+        .dropdown-item {
+            padding: 12px 16px;
+            font-size: 14px;
+            color: var(--text);
+            cursor: pointer;
+        }
+        .dropdown-item:active { background: var(--primary); color: white; }
+
+        /* 触摸板 */
+        .touchpad {
+            flex: 1;
+            min-height: 100px;
+            margin-top: calc(60px - 0.5dvh);
+            background: var(--bg-card);
+            border-radius: 16px;
+            border: 1px solid var(--glass-border);
+            touch-action: none;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .touchpad::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            left: var(--touchpad-left-ratio);
+            width: 1px;
+            background: rgba(255, 255, 255, 0.25);
+            pointer-events: none;
+        }
+
+        /* 键盘区 */
+        .keyboard {
+            flex-shrink: 0;
+            background: var(--bg-card);
+            border-radius: 12px;
+            border: 1px solid var(--glass-border);
+            padding: 8px;
+            padding-bottom: max(8px, env(keyboard-inset-bottom, 8px));
+            margin-top: 0;
+            margin-bottom: 8px;
+        }
+
+        .btn-row {
+            display: flex;
+            gap: 6px;
+        }
+
+        .btn {
+            flex: 1;
+            height: 44px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .btn:active { transform: scale(0.96); }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            color: white;
+        }
+        .btn-outline {
+            background: var(--success);
+            color: white;
+        }
+        .btn-danger {
+            background: var(--danger);
+            color: white;
+        }
+
+        /* 灵敏度弹窗 */
+        .popup-mask {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.7);
+            z-index: 2000;
+            align-items: center;
+            justify-content: center;
+        }
+        .popup-mask.show { display: flex; }
+
+        .popup {
+            background: var(--bg-card);
+            border: 1px solid var(--glass-border);
+            border-radius: 16px;
+            padding: 20px;
+            width: 85%;
+            max-width: 300px;
+        }
+
+        .popup-title {
+            font-size: 15px;
+            color: var(--primary);
+            text-align: center;
+            margin-bottom: 16px;
+        }
+
+        .popup-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 14px;
+        }
+
+        .popup-label { font-size: 13px; min-width: 35px; color: var(--text-dim); }
+        .popup-slider { flex: 1; }
+        .popup-value { font-size: 14px; color: var(--primary); min-width: 20px; text-align: center; }
+
+        .popup-btns { display: flex; gap: 10px; margin-top: 16px; }
+        .popup-btns .btn { padding: 10px; }
+
+        /* 帮助弹窗 */
+        .help-popup {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.7);
+            z-index: 2000;
+            align-items: center;
+            justify-content: center;
+        }
+        .help-popup.show { display: flex; }
+
+        .help-content {
+            background: var(--bg-card);
+            border: 1px solid var(--glass-border);
+            border-radius: 16px;
+            padding: 20px;
+            width: 85%;
+            max-width: 280px;
+            text-align: center;
+        }
+
+        .help-title { font-size: 15px; color: var(--primary); margin-bottom: 14px; }
+        .help-item { font-size: 13px; margin: 8px 0; }
+        .help-item span { color: var(--primary); }
+
+        .help-close {
+            margin-top: 16px;
+            padding: 10px 24px;
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 20px;
+            font-size: 13px;
+            cursor: pointer;
+        }
+
+        /* Toast */
+        .toast {
+            position: fixed;
+            bottom: 80px;
+            left: 50%;
+            transform: translateX(-50%) translateY(20px);
+            background: var(--bg-card);
+            padding: 10px 20px;
+            border-radius: 20px;
+            font-size: 13px;
+            opacity: 0;
+            transition: all 0.3s;
+            z-index: 3000;
+        }
+        .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+        /* 全屏模式 */
+        body.fullscreen .top-bar { display: none; }
+        body.fullscreen .app { padding: 0; }
+        body.fullscreen .touchpad { border-radius: 0; flex: 1; }
+        body.fullscreen .keyboard { border-radius: 0; }
+        /* 全屏模式隐藏底部键盘但保留悬浮按钮 */
+        body.fullscreen .keyboard { display: none; }
+
+        /* 悬浮输入按钮 */
+        .float-btn {
+            position: fixed;
+            right: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            border: none;
+            color: white;
+            font-size: 20px;
+            cursor: pointer;
+            z-index: 102;
+            box-shadow: var(--glow);
+            user-select: none;
+        }
+
+        .float-input-wrap {
+            display: none;
+            position: fixed;
+            right: 12px;
+            top: 51%;
+            transform: translateY(-50%);
+            background: var(--bg-card);
+            border: 1px solid var(--glass-border);
+            border-radius: 12px;
+            padding: 8px;
+            z-index: 101;
+            width: 260px;
+        }
+        .float-input-wrap.show { display: flex; gap: 6px; align-items: flex-start; }
+
+        .float-text {
+            flex: 1;
+            min-height: 28px;
+            max-height: 120px;
+            background: var(--glass);
+            border: none;
+            border-radius: 6px;
+            padding: 4px 8px;
+            font-size: 14px;
+            color: var(--text);
+            resize: none;
+            outline: none;
+            line-height: 1.4;
+            overflow-y: hidden;
+            font-family: inherit;
+        }
+        .float-text:focus { box-shadow: inset 0 0 0 2px var(--primary); }
+
+        .float-send {
+            width: 44px;
+            height: 44px;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            border: none;
+            border-radius: 6px;
+            color: white;
+            font-size: 12px;
+            cursor: pointer;
+            flex-shrink: 0;
+            align-self: flex-start;
+            margin-top: 2px;
+        }
+
+        /* 悬浮键盘按钮 */
+        .float-kbd-btn {
+            position: fixed;
+            right: 12px;
+            top: 60%;
+            transform: translateY(-50%);
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            background: var(--bg-card);
+            border: 1px solid var(--glass-border);
+            color: var(--text);
+            font-size: 18px;
+            cursor: pointer;
+            z-index: 102;
+            user-select: none;
+        }
+
+        .float-kbd-wrap {
+            display: none;
+            position: fixed;
+            right: 12px;
+            top: 78%;
+            transform: translateY(-50%);
+            background: var(--bg-card);
+            border: 1px solid var(--glass-border);
+            border-radius: 12px;
+            padding: 10px;
+            z-index: 101;
+            width: 200px;
+        }
+        .float-kbd-wrap.show { display: block; }
+
+        .kbd-grid {
+            display: grid;
+            grid-template-areas:
+                "paste up copy"
+                "left down right";
+            gap: 6px;
+            justify-content: center;
+        }
+
+        .kbd-btn {
+            width: 52px;
+            height: 44px;
+            border-radius: 8px;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            border: none;
+            color: white;
+            font-size: 11px;
+            font-weight: 500;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .kbd-btn:active { opacity: 0.8; }
+
+        .kbd-paste { grid-area: paste; }
+        .kbd-up { grid-area: up; }
+        .kbd-copy { grid-area: copy; }
+        .kbd-left { grid-area: left; }
+        .kbd-down { grid-area: down; }
+        .kbd-right { grid-area: right; }
+        .float-input-wrap.show { display: flex; gap: 8px; align-items: flex-start; }
+
+        .float-text {
+            flex: 1;
+            min-height: 60px;
+            background: var(--glass);
+            border: none;
+            border-radius: 8px;
+            padding: 8px;
+            font-size: 14px;
+            color: var(--text);
+            resize: none;
+            outline: none;
+        }
+        .float-text:focus { box-shadow: inset 0 0 0 2px var(--primary); }
+
+        .float-send {
+            width: 48px;
+            height: 60px;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            border: none;
+            border-radius: 8px;
+            color: white;
+            font-size: 13px;
+            cursor: pointer;
+        }
+
+        /* 悬浮控制按钮 */
+        .float-ctrl-btn {
+            position: fixed;
+            right: 12px;
+            top: 40%;
+            transform: translateY(-50%);
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #f59e0b, #ef4444);
+            border: none;
+            color: white;
+            font-size: 20px;
+            cursor: pointer;
+            z-index: 102;
+            box-shadow: 0 0 20px rgba(245, 158, 11, 0.4);
+            user-select: none;
+        }
+
+        /* 控制面板容器 - 缩小到60% */
+        .float-ctrl-wrap {
+            display: none;
+            position: fixed;
+            right: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 168px;  /* 280 * 0.6 = 168 */
+            background: rgba(10, 10, 15, 0.95);
+            backdrop-filter: blur(20px) saturate(180%);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 20px;
+            box-shadow: 
+                0 0 40px rgba(0, 212, 255, 0.15),
+                inset 0 1px 0 rgba(255, 255, 255, 0.1);
+            z-index: 101;
+            overflow: hidden;
+            animation: panelSlideIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        .float-ctrl-wrap.show { display: block; }
+
+        @keyframes panelSlideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-50%) translateX(50px) scale(0.9);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(-50%) translateX(0) scale(1);
+            }
+        }
+
+        /* 标签页 */
+        .ctrl-tabs {
+            display: flex;
+            background: rgba(255, 255, 255, 0.05);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .ctrl-tab {
+            flex: 1;
+            padding: 14px;
+            background: transparent;
+            border: none;
+            color: rgba(255, 255, 255, 0.5);
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            position: relative;
+        }
+
+        .ctrl-tab.active {
+            color: var(--primary);
+            background: rgba(0, 212, 255, 0.1);
+        }
+
+        .ctrl-tab.active::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, var(--primary), var(--secondary));
+        }
+
+        /* 面板内容 */
+        .ctrl-panel {
+            padding: 16px;
+        }
+
+        /* 媒体控制面板 */
+        .media-controls {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+        }
+
+        .media-btn {
+            width: 100%;
+            aspect-ratio: 1;
+            border-radius: 50%;
+            border: none;
+            background: linear-gradient(135deg, rgba(0, 212, 255, 0.2), rgba(123, 47, 255, 0.2));
+            border: 1px solid rgba(0, 212, 255, 0.3);
+            color: #fff;
+            font-size: 24px;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .media-btn::before {
+            content: '';
+            position: absolute;
+            inset: 2px;
+            background: rgba(0, 0, 0, 0.5);
+            border-radius: 50%;
+            z-index: -1;
+        }
+
+        .media-btn:active {
+            transform: scale(0.95);
+            box-shadow: 0 0 20px rgba(0, 212, 255, 0.6);
+        }
+
+        .media-btn.playing {
+            border-color: #00ff88;
+            box-shadow: 0 0 20px rgba(0, 255, 136, 0.4);
+        }
+
+        /* 文件传输面板 - 与媒体面板同宽 */
+        .file-panel {
+            padding: 12px;
+        }
+
+        .file-zone {
+            margin: 0 0 12px 0;
+            padding: 24px 12px;
+            border: 2px dashed rgba(255, 255, 255, 0.2);
+            border-radius: 12px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        .file-zone:hover {
+            border-color: rgba(0, 212, 255, 0.5);
+            background: rgba(0, 212, 255, 0.05);
+        }
+
+        .file-zone:active {
+            transform: scale(0.98);
+        }
+
+        .file-zone-text {
+            font-size: 11px;
+            color: var(--text-dim);
+            margin: 0;
+        }
+
+        .file-list {
+            padding: 0;
+            max-height: 120px;
+            overflow-y: auto;
+            margin-bottom: 12px;
+        }
+
+        .file-zone:hover {
+            border-color: rgba(0, 212, 255, 0.5);
+            background: rgba(0, 212, 255, 0.05);
+        }
+
+        .file-zone.dragover {
+            border-color: var(--primary);
+            background: rgba(0, 212, 255, 0.1);
+            transform: scale(1.02);
+        }
+
+        .file-zone-text {
+            font-size: 12px;
+            color: var(--text-dim);
+        }
+
+        .file-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 8px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 6px;
+            margin-bottom: 4px;
+            font-size: 11px;
+            animation: slideIn 0.3s ease-out;
+        }
+
+        .file-item .icon {
+            font-size: 14px;
+        }
+
+        .file-item .name {
+            flex: 1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .file-item .size {
+            font-size: 10px;
+            color: var(--text-dim);
+        }
+
+        .file-item .remove {
+            color: var(--danger);
+            cursor: pointer;
+            padding: 2px 4px;
+            font-size: 12px;
+            opacity: 0.7;
+        }
+
+        .file-item .remove:hover {
+            opacity: 1;
+        }
+
+        .file-item .progress {
+            height: 2px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 1px;
+            overflow: hidden;
+            margin-top: 3px;
+        }
+
+        .file-item .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--primary), var(--secondary));
+            border-radius: 1px;
+            transition: width 0.2s;
+        }
+
+        .file-item.uploaded {
+            border-left: 2px solid var(--success);
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-5px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* 文件操作按钮 */
+        .file-actions {
+            display: flex;
+            gap: 6px;
+            padding: 0 0 0 0;
+        }
+
+        .btn-cancel, .btn-send {
+            flex: 1;
+            height: 32px;
+            border: none;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .file-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 12px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            margin-bottom: 8px;
+            font-size: 13px;
+            animation: slideIn 0.3s ease-out;
+        }
+
+        .file-item .icon {
+            font-size: 20px;
+        }
+
+        .file-item .name {
+            flex: 1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .file-item .remove {
+            color: var(--danger);
+            cursor: pointer;
+            padding: 4px;
+            font-size: 16px;
+        }
+
+        .file-item .progress {
+            height: 4px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 2px;
+            overflow: hidden;
+            margin-top: 6px;
+        }
+
+        .file-item .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--primary), var(--secondary));
+            border-radius: 2px;
+            transition: width 0.2s;
+        }
+
+        .file-item.uploaded {
+            border-left: 3px solid var(--success);
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* 文件操作按钮 */
+        .file-actions {
+            display: flex;
+            gap: 10px;
+            padding: 0 16px 16px;
+        }
+
+        .btn-cancel, .btn-send {
+            flex: 1;
+            height: 40px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-cancel {
+            background: var(--glass);
+            color: var(--text-dim);
+        }
+
+        .btn-send {
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            color: white;
+        }
+
+        .btn-cancel:active, .btn-send:active {
+            transform: scale(0.98);
+        }
+    </style>
+</head>
+    <body>
+        <!-- 二维码连接横幅 -->
+        <!-- 悬浮按钮 -->
+        <button class="float-btn" id="floatBtn">✎</button>
+
+    <!-- 悬浮输入框 -->
+    <div class="float-input-wrap" id="floatWrap">
+        <textarea class="float-text" id="floatText" placeholder="输入文字..." rows="1"></textarea>
+        <button class="float-send" id="floatSend">发送</button>
+    </div>
+
+    <!-- 悬浮键盘按钮 -->
+    <button class="float-kbd-btn" id="floatKbdBtn">⌨</button>
+
+    <!-- 悬浮键盘面板 -->
+    <div class="float-kbd-wrap" id="floatKbdWrap">
+        <div class="kbd-grid">
+            <button class="kbd-btn kbd-paste" data-key="paste">Ctrl+V</button>
+            <button class="kbd-btn kbd-up" data-key="up">↑</button>
+            <button class="kbd-btn kbd-copy" data-key="copy">Ctrl+C</button>
+            <button class="kbd-btn kbd-left" data-key="left">←</button>
+            <button class="kbd-btn kbd-down" data-key="down">↓</button>
+            <button class="kbd-btn kbd-right" data-key="right">→</button>
+        </div>
+    </div>
+
+    <!-- 悬浮控制中心按钮 -->
+    <button class="float-ctrl-btn" id="floatCtrlBtn">🎛️</button>
+
+    <!-- 悬浮控制面板 -->
+    <div class="float-ctrl-wrap" id="floatCtrlWrap">
+        <!-- 标签页 -->
+        <div class="ctrl-tabs">
+            <button class="ctrl-tab active" data-tab="media">🎵 媒体</button>
+            <button class="ctrl-tab" data-tab="file">📁 文件</button>
+        </div>
+
+        <!-- 媒体控制面板 -->
+        <div class="ctrl-panel media-panel">
+            <div class="media-controls">
+                <button class="media-btn" data-media="prev">⏮</button>
+                <button class="media-btn" data-media="play_pause">⏸</button>
+                <button class="media-btn" data-media="next">⏭</button>
+                <button class="media-btn" data-media="volume_up">🔊</button>
+                <button class="media-btn" data-media="volume_mute">🔇</button>
+                <button class="media-btn" data-media="volume_down">🔈</button>
+            </div>
+        </div>
+
+        <!-- 文件传输面板 -->
+        <div class="ctrl-panel file-panel" style="display: none;">
+            <div class="file-zone" id="fileZone">
+                <div class="file-zone-text">📎 点击选择文件</div>
+                <input type="file" id="fileInput" multiple style="display: none;">
+            </div>
+            <div class="file-list" id="fileList">
+                <!-- 文件列表动态生成 -->
+            </div>
+            <div class="file-actions">
+                <button class="btn-cancel" id="cancelFiles">取消</button>
+                <button class="btn-send" id="sendFiles">发送</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="app">
+        <!-- 顶部栏 -->
+        <div class="top-bar">
+            <div class="status" id="statusArea">
+                <span id="statusText">点击连接</span>
+                <div class="status-dot" id="statusDot"></div>
+            </div>
+            <div class="menu-wrap">
+                <button class="menu-btn" id="menuBtn">☰</button>
+                <div class="dropdown" id="dropdown">
+                    <div class="dropdown-item" id="btnFull">⛶ 全屏</div>
+                    <div class="dropdown-item" id="btnSet">⚙ 灵敏度</div>
+                    <div class="dropdown-item" id="btnHelp">❓ 帮助</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 触摸板 -->
+        <div class="touchpad" id="touchpad"></div>
+
+        <!-- 键盘 -->
+        <div class="keyboard">
+            <div class="btn-row">
+                <button class="btn btn-primary" id="btnEsc">ESC</button>
+                <button class="btn btn-outline" id="btnEnter">↵ 回车</button>
+                <button class="btn btn-danger" id="btnDel">⌫ 删除</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 灵敏度弹窗 -->
+    <div class="popup-mask" id="sensMask">
+        <div class="popup">
+            <div class="popup-title">触摸板灵敏度</div>
+            <div class="popup-row">
+                <span class="popup-label">横向</span>
+                <input type="range" class="popup-slider" id="sensX" min="1" max="15" value="8">
+                <span class="popup-value" id="sensXVal">8</span>
+            </div>
+            <div class="popup-row">
+                <span class="popup-label">纵向</span>
+                <input type="range" class="popup-slider" id="sensY" min="1" max="30" value="8">
+                <span class="popup-value" id="sensYVal">8</span>
+            </div>
+            <div class="popup-btns">
+                <button class="btn" id="btnCancel" style="background:var(--glass);color:var(--text-dim);">取消</button>
+                <button class="btn btn-primary" id="btnOk">确定</button>
+            </div>
+        </div>
+    </div>
+
+        <!-- 帮助弹窗 -->
+        <div class="help-popup" id="helpMask">
+            <div class="help-content">
+                <div class="help-title">📋 操作说明</div>
+                <div class="help-item"><span>单指滑动</span> 移动鼠标</div>
+                <div class="help-item"><span>点击左侧</span> 鼠标左键</div>
+                <div class="help-item"><span>点击右侧</span> 鼠标右键</div>
+                <div class="help-item"><span>双指滑动</span> 页面滚动</div>
+                <button class="help-close" id="helpClose">知道了</button>
+            </div>
+        </div>
+
+     <!-- Toast -->
+     <div class="toast" id="toast"></div>
+
+     <script>
+         let ws = null;
+        const wsToken = "{{ ws_token }}";
+        let manualClose = false;
+        let touchSensitivityX = 8;
+        let touchSensitivityY = 8;
+        let pendingSens = { x: 8, y: 8 };
+
+        function getIP() {
+            const m = window.location.host.match(/(\d{1,3}\.){3}\d{1,3}/);
+            return m ? m[0] : '';
+        }
+
+        function connect() {
+            manualClose = false;
+            const ip = getIP();
+            ws = new WebSocket('ws://' + ip + ':4000/?token=' + encodeURIComponent(wsToken));
+            ws.onopen = function() {
+                document.getElementById('statusText').textContent = '已连接';
+                document.getElementById('statusDot').classList.add('on');
+                showToast('连接成功');
+            };
+            ws.onmessage = function(event) {
+                try {
+                    const msg = JSON.parse(event.data);
+                    if (msg.file_complete) {
+                        const name = msg.name || '文件';
+                        showToast(`传输成功: ${name}`);
+                    }
+                } catch (_) {
+                    // Ignore non-JSON messages
+                }
+            };
+            ws.onclose = function() {
+                document.getElementById('statusText').textContent = '点击连接';
+                document.getElementById('statusDot').classList.remove('on');
+                ws = null;
+                // 如果不是手动断开，自动重连
+                if (!manualClose) {
+                    setTimeout(connect, 2000);
+                }
+            };
+            ws.onerror = function() {
+                document.getElementById('statusText').textContent = '连接失败';
+            };
+        }
+
+        // 页面加载自动连接
+        connect();
+
+        function send(data) {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify(data));
+                return true;
+            }
+            showToast('请先连接服务器');
+            return false;
+        }
+
+        function showToast(msg) {
+            const t = document.getElementById('toast');
+            t.textContent = msg;
+            t.classList.add('show');
+            setTimeout(() => t.classList.remove('show'), 2000);
+        }
+
+        // 菜单
+        const menuBtn = document.getElementById('menuBtn');
+        const dropdown = document.getElementById('dropdown');
+
+        menuBtn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            dropdown.classList.toggle('open');
+        });
+
+        document.addEventListener('click', function() {
+            dropdown.classList.remove('open');
+        });
+
+        document.getElementById('btnFull').addEventListener('click', function() {
+            dropdown.classList.remove('open');
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen();
+            } else {
+                document.exitFullscreen();
+            }
+        });
+
+        document.addEventListener('fullscreenchange', function() {
+            document.body.classList.toggle('fullscreen', !!document.fullscreenElement);
+        });
+
+        document.getElementById('btnSet').addEventListener('click', function() {
+            dropdown.classList.remove('open');
+            pendingSens.x = touchSensitivityX;
+            pendingSens.y = touchSensitivityY;
+            document.getElementById('sensX').value = touchSensitivityX;
+            document.getElementById('sensXVal').textContent = touchSensitivityX;
+            document.getElementById('sensY').value = touchSensitivityY;
+            document.getElementById('sensYVal').textContent = touchSensitivityY;
+            document.getElementById('sensMask').classList.add('show');
+        });
+
+        document.getElementById('sensX').addEventListener('input', function() {
+            pendingSens.x = parseInt(this.value);
+            document.getElementById('sensXVal').textContent = pendingSens.x;
+        });
+
+        document.getElementById('sensY').addEventListener('input', function() {
+            pendingSens.y = parseInt(this.value);
+            document.getElementById('sensYVal').textContent = pendingSens.y;
+        });
+
+        document.getElementById('btnCancel').addEventListener('click', function() {
+            document.getElementById('sensMask').classList.remove('show');
+        });
+
+        document.getElementById('btnOk').addEventListener('click', function() {
+            touchSensitivityX = pendingSens.x;
+            touchSensitivityY = pendingSens.y;
+            document.getElementById('sensMask').classList.remove('show');
+            showToast('灵敏度已保存');
+        });
+
+        document.getElementById('btnHelp').addEventListener('click', function() {
+            dropdown.classList.remove('open');
+            document.getElementById('helpMask').classList.add('show');
+        });
+
+        document.getElementById('helpClose').addEventListener('click', function() {
+            document.getElementById('helpMask').classList.remove('show');
+        });
+
+        // 状态栏连接
+        document.getElementById('statusArea').addEventListener('click', function() {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                manualClose = true;
+                ws.close();
+            } else {
+                manualClose = false;
+                connect();
+            }
+        });
+
+        // 触摸板
+        const touchpad = document.getElementById('touchpad');
+        let lastTouch = null;
+        let lastTwoFingers = null;
+        let startPos = { x: 0, y: 0 };
+        let startTime = 0;
+
+        touchpad.addEventListener('touchstart', function(e) {
+            e.preventDefault();
+            
+            if (e.touches.length === 1) {
+                // 单指：记录触摸位置
+                const t = e.touches[0];
+                lastTouch = { x: t.clientX, y: t.clientY };
+                startPos = { x: t.clientX, y: t.clientY };
+                startTime = Date.now();
+                lastTwoFingers = null;
+            } else if (e.touches.length === 2) {
+                // 双指：记录两指中心点，用于滚动
+                const t1 = e.touches[0];
+                const t2 = e.touches[1];
+                const centerX = (t1.clientX + t2.clientX) / 2;
+                const centerY = (t1.clientY + t2.clientY) / 2;
+                lastTwoFingers = { x: centerX, y: centerY };
+                lastTouch = null; // 禁用单指移动
+            }
+        }, { passive: false });
+
+        touchpad.addEventListener('touchmove', function(e) {
+            e.preventDefault();
+            
+            if (e.touches.length === 1 && lastTouch && !lastTwoFingers) {
+                // 单指移动：鼠标移动
+                const t = e.touches[0];
+                const dx = (t.clientX - lastTouch.x) / window.innerWidth * (touchSensitivityX / 5);
+                const dy = (t.clientY - lastTouch.y) / window.innerHeight * (touchSensitivityY / 5);
+                send({ touch: [dx, dy] });
+                lastTouch = { x: t.clientX, y: t.clientY };
+            } else if (e.touches.length === 2 && lastTwoFingers) {
+                // 双指滚动：页面滚动
+                const t1 = e.touches[0];
+                const t2 = e.touches[1];
+                const centerX = (t1.clientX + t2.clientX) / 2;
+                const centerY = (t1.clientY + t2.clientY) / 2;
+                const dy = centerY - lastTwoFingers.y;
+                // 发送滚动量：垂直滚动 (x=0, y=滚动距离)
+                // 向下滑动 dy > 0，需要发送负值才能向下滚动
+                send({ scroll: [0, -dy * 3] });  // 系数3作为滚动倍率
+                
+                lastTwoFingers = { x: centerX, y: centerY };
+            }
+        }, { passive: false });
+
+        touchpad.addEventListener('touchend', function(e) {
+            e.preventDefault();
+            
+            if (e.touches.length === 0) {
+                // 所有手指离开
+                if (lastTouch) {
+                    // 单指点击逻辑
+                    const duration = Date.now() - startTime;
+                    const t = e.changedTouches[0];
+                    const dx = Math.abs(t.clientX - startPos.x);
+                    const dy = Math.abs(t.clientY - startPos.y);
+
+                    if (duration < 200 && dx < 10 && dy < 10) {
+                        const rect = touchpad.getBoundingClientRect();
+                        const x = t.clientX - rect.left;
+                        if (x < rect.width * 0.65) {
+                            send({ tap: true });
+                        } else {
+                            send({ rightTap: true });
+                        }
+                    }
+                }
+                lastTouch = null;
+                lastTwoFingers = null;
+            } else if (e.touches.length === 1) {
+                // 从双指变为单指
+                const t = e.touches[0];
+                lastTouch = { x: t.clientX, y: t.clientY };
+                startPos = { x: t.clientX, y: t.clientY };
+                startTime = Date.now();
+                lastTwoFingers = null;
+            }
+        }, { passive: false });
+
+        // 键盘按钮
+        document.getElementById('btnEsc').addEventListener('click', function() {
+            send({ key: 'esc' });
+        });
+
+        document.getElementById('btnEnter').addEventListener('click', function() {
+            send({ key: 'enter' });
+        });
+
+        let delTimer = null;
+        const btnDel = document.getElementById('btnDel');
+
+        function doDel() {
+            send({ key: 'backspace' });
+            delTimer = setTimeout(doDel, 100);
+        }
+
+        btnDel.addEventListener('touchstart', function(e) {
+            e.preventDefault();
+            doDel();
+        });
+        btnDel.addEventListener('touchend', function() {
+            clearTimeout(delTimer);
+        });
+        btnDel.addEventListener('mousedown', doDel);
+        btnDel.addEventListener('mouseup', function() { clearTimeout(delTimer); });
+        btnDel.addEventListener('mouseleave', function() { clearTimeout(delTimer); });
+
+        // 防休眠
+        if (navigator.wakeLock) {
+            navigator.wakeLock.request('screen').catch(() => {});
+        }
+
+        // 悬浮输入框
+        const floatBtn = document.getElementById('floatBtn');
+        const floatWrap = document.getElementById('floatWrap');
+
+        // 定位输入面板到按钮左下角
+        function positionFloatWrap() {
+            const btnRect = floatBtn.getBoundingClientRect();
+            const panelWidth = 260;
+            const gap = 8;
+            
+            // 面板在按钮左下角：面板顶部 = 按钮底部 + 间距
+            const top = btnRect.bottom + gap;
+            
+            // 面板在按钮左侧：面板右边缘 = 按钮左边缘 - 间距
+            let left = btnRect.left - panelWidth - gap;
+            
+            // 如果左侧空间不足，面板在按钮右侧
+            if (left < 12) {
+                left = btnRect.right + gap;
+            }
+            
+            floatWrap.style.left = left + 'px';
+            floatWrap.style.right = 'auto';
+            floatWrap.style.top = top + 'px';
+        }
+
+        floatBtn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            const isShown = floatWrap.classList.contains('show');
+            
+            if (isShown) {
+                floatWrap.classList.remove('show');
+            } else {
+                positionFloatWrap();  // 先定位面板
+                floatWrap.classList.add('show');
+                const textarea = document.getElementById('floatText');
+                textarea.style.height = 'auto';
+                textarea.style.height = Math.max(28, Math.min(textarea.scrollHeight, 120)) + 'px';
+                setTimeout(() => textarea.focus(), 100);
+            }
+        });
+
+        floatWrap.addEventListener('click', function(e) {
+            e.stopPropagation();
+        });
+
+        document.addEventListener('click', function() {
+            floatWrap.classList.remove('show');
+        });
+
+        document.getElementById('floatText').addEventListener('input', function() {
+            this.style.height = 'auto';
+            this.style.height = Math.max(28, Math.min(this.scrollHeight, 120)) + 'px';
+        });
+
+        document.getElementById('floatSend').addEventListener('click', function(e) {
+            e.stopPropagation();
+            const text = document.getElementById('floatText').value;
+            if (text) {
+                send({ key: [text, 0] });
+                document.getElementById('floatText').value = '';
+                floatWrap.classList.remove('show');
+            }
+        });
+
+        // ===== 悬浮键盘面板 =====
+        const floatKbdBtn = document.getElementById('floatKbdBtn');
+        const floatKbdWrap = document.getElementById('floatKbdWrap');
+
+        // 定位键盘面板到按钮左下角
+        function positionFloatKbdWrap() {
+            const btnRect = floatKbdBtn.getBoundingClientRect();
+            const panelWidth = 200;
+            const gap = 8;
+            
+            const top = btnRect.bottom + gap;
+            let left = btnRect.left - panelWidth - gap;
+            if (left < 12) {
+                left = btnRect.right + gap;
+            }
+            
+            floatKbdWrap.style.left = left + 'px';
+            floatKbdWrap.style.right = 'auto';
+            floatKbdWrap.style.top = top + 'px';
+        }
+
+        floatKbdBtn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            const isShown = floatKbdWrap.classList.contains('show');
+            
+            if (isShown) {
+                floatKbdWrap.classList.remove('show');
+            } else {
+                positionFloatKbdWrap();  // 先定位面板
+                floatKbdWrap.classList.add('show');
+            }
+        });
+
+        floatKbdWrap.addEventListener('click', function(e) {
+            e.stopPropagation();
+        });
+
+        document.addEventListener('click', function() {
+            floatKbdWrap.classList.remove('show');
+        });
+
+        // 方向键和复制粘贴
+        document.querySelectorAll('.kbd-btn').forEach(btn => {
+            btn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                const key = this.getAttribute('data-key');
+                if (key === 'paste') {
+                    send({ hotkey: ['ctrl', 'v'] });
+                } else if (key === 'copy') {
+                    send({ hotkey: ['ctrl', 'c'] });
+                } else {
+                    send({ key: key });
+                }
+            });
+        });
+
+        // ===== 悬浮控制中心 =====
+        const floatCtrlBtn = document.getElementById('floatCtrlBtn');
+        const floatCtrlWrap = document.getElementById('floatCtrlWrap');
+
+        // 定位控制面板到按钮左下角
+        function positionPanel() {
+            const btnRect = floatCtrlBtn.getBoundingClientRect();
+            const panelWidth = 168;
+            const gap = 12;
+            
+            const top = btnRect.bottom + gap;
+            let left = btnRect.left - panelWidth - gap;
+            if (left < 12) {
+                left = btnRect.right + gap;
+            }
+            
+            floatCtrlWrap.style.left = left + 'px';
+            floatCtrlWrap.style.right = 'auto';
+            floatCtrlWrap.style.top = top + 'px';
+        }
+
+        floatCtrlBtn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            const isShown = floatCtrlWrap.classList.contains('show');
+            
+            if (isShown) {
+                floatCtrlWrap.classList.remove('show');
+            } else {
+                positionPanel();
+                floatCtrlWrap.classList.add('show');
+            }
+        });
+
+        floatCtrlWrap.addEventListener('click', function(e) {
+            e.stopPropagation();
+        });
+
+        document.addEventListener('click', function() {
+            floatCtrlWrap.classList.remove('show');
+        });
+
+        // 标签页切换
+        const tabs = document.querySelectorAll('.ctrl-tab');
+        const mediaPanel = document.querySelector('.media-panel');
+        const filePanel = document.querySelector('.file-panel');
+
+        tabs.forEach(tab => {
+            tab.addEventListener('click', function(e) {
+                e.stopPropagation();
+                tabs.forEach(t => t.classList.remove('active'));
+                this.classList.add('active');
+                
+                const tabName = this.getAttribute('data-tab');
+                if (tabName === 'media') {
+                    mediaPanel.style.display = 'block';
+                    filePanel.style.display = 'none';
+                } else {
+                    mediaPanel.style.display = 'none';
+                    filePanel.style.display = 'block';
+                }
+            });
+        });
+
+        // 媒体控制键
+        document.querySelectorAll('.media-btn').forEach(btn => {
+            btn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                const media = this.getAttribute('data-media');
+                
+                // 视觉反馈
+                this.style.transform = 'scale(0.95)';
+                setTimeout(() => this.style.transform = '', 150);
+
+                // 发送媒体键命令
+                switch(media) {
+                    case 'volume_up':
+                        send({ media_volume_up: true });
+                        break;
+                    case 'volume_down':
+                        send({ media_volume_down: true });
+                        break;
+                    case 'volume_mute':
+                        send({ media_volume_mute: true });
+                        break;
+                    case 'play_pause':
+                        send({ media_play_pause: true });
+                        break;
+                    case 'next':
+                        send({ media_next: true });
+                        break;
+                    case 'prev':
+                        send({ media_prev: true });
+                        break;
+                }
+            });
+        });
+
+        // 文件传输功能
+        const fileZone = document.getElementById('fileZone');
+        const fileInput = document.getElementById('fileInput');
+        const fileList = document.getElementById('fileList');
+        const cancelFilesBtn = document.getElementById('cancelFiles');
+        const sendFilesBtn = document.getElementById('sendFiles');
+
+        let selectedFiles = [];  // 待上传文件列表
+
+        // 点击选择文件
+        fileZone.addEventListener('click', function(e) {
+            e.stopPropagation();
+            fileInput.click();
+        });
+
+        fileInput.addEventListener('change', function(e) {
+            e.stopPropagation();
+            handleFiles(this.files);
+            this.value = '';  // 清空input，允许重复选择同一文件
+        });
+
+        // 处理文件选择（重复代码已删除）
+        function handleFiles(files) {
+            for (let file of files) {
+                // 检查是否已存在
+                if (!selectedFiles.some(f => f.name === file.name && f.size === file.size)) {
+                    selectedFiles.push(file);
+                    addFileToList(file);
+                }
+            }
+        }
+
+        // 添加文件到列表
+        function addFileToList(file) {
+            const fileItem = document.createElement('div');
+            fileItem.className = 'file-item';
+            fileItem.innerHTML = `
+                <span class="icon">📄</span>
+                <span class="name">${file.name}</span>
+                <span class="size">(${formatSize(file.size)})</span>
+                <span class="remove">×</span>
+            `;
+
+            // 删除按钮
+            fileItem.querySelector('.remove').addEventListener('click', function(e) {
+                e.stopPropagation();
+                const index = selectedFiles.findIndex(f => f.name === file.name && f.size === file.size);
+                if (index > -1) {
+                    selectedFiles.splice(index, 1);
+                    fileItem.remove();
+                }
+            });
+
+            fileList.appendChild(fileItem);
+        }
+
+        // 格式化文件大小
+        function formatSize(bytes) {
+            if (bytes < 1024) return bytes + ' B';
+            if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+            if (bytes < 1024 * 1024 * 1024) return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+            return (bytes / (1024 * 1024 * 1024)).toFixed(1) + ' GB';
+        }
+
+        // 取消所有文件
+        cancelFilesBtn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            selectedFiles = [];
+            fileList.innerHTML = '';
+        });
+
+        // 发送文件
+        sendFilesBtn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            if (selectedFiles.length === 0) {
+                showToast('请先选择文件');
+                return;
+            }
+            
+            // 依次发送文件
+            selectedFiles.forEach(file => {
+                uploadFile(file);
+            });
+            
+            // 清空列表
+            selectedFiles = [];
+            fileList.innerHTML = '';
+        });
+
+        // 文件分片上传
+        async function uploadFile(file) {
+            const CHUNK_SIZE = 64 * 1024;  // 64KB 每块
+            let offset = 0;
+            const fileId = Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+
+            // 发送文件元数据
+            send({
+                file_meta: {
+                    name: file.name,
+                    size: file.size,
+                    type: file.type
+                }
+            });
+
+            // 读取并分片发送
+            const fileReader = new FileReader();
+
+            fileReader.onload = function(e) {
+                const arrayBuffer = e.target.result;
+                const base64 = btoa(
+                    new Uint8Array(arrayBuffer).reduce((data, byte) => data + String.fromCharCode(byte), '')
+                );
+
+                send({
+                    file_chunk: {
+                        name: file.name,
+                        data: base64
+                    }
+                });
+
+                offset += arrayBuffer.byteLength;
+                
+                // 更新进度（通过查找对应的file-item）
+                updateFileProgress(file, offset, file.size);
+
+                if (offset < file.size) {
+                    // 继续读取下一块
+                    readNextChunk();
+                } else {
+                    // 发送结束标记
+                    send({
+                        file_end: true,
+                        file_name: file.name
+                    });
+                    markFileUploaded(file);
+                }
+            };
+
+            function readNextChunk() {
+                const slice = file.slice(offset, offset + CHUNK_SIZE);
+                fileReader.readAsArrayBuffer(slice);
+            }
+
+            // 开始读取
+            readNextChunk();
+        }
+
+        // 更新文件上传进度
+        function updateFileProgress(file, uploaded, total) {
+            const fileItems = document.querySelectorAll('.file-item');
+            for (let item of fileItems) {
+                const nameEl = item.querySelector('.name');
+                if (nameEl && nameEl.textContent === file.name) {
+                    let progressBar = item.querySelector('.progress');
+                    let progressFill = item.querySelector('.progress-fill');
+                    
+                    if (!progressBar) {
+                        progressBar = document.createElement('div');
+                        progressBar.className = 'progress';
+                        progressFill = document.createElement('div');
+                        progressFill.className = 'progress-fill';
+                        progressBar.appendChild(progressFill);
+                        item.appendChild(progressBar);
+                    }
+                    
+                    const percent = (uploaded / total) * 100;
+                    progressFill.style.width = percent + '%';
+                    break;
+                }
+            }
+        }
+
+        // 标记文件上传完成
+        function markFileUploaded(file) {
+            const fileItems = document.querySelectorAll('.file-item');
+            for (let item of fileItems) {
+                const nameEl = item.querySelector('.name');
+                if (nameEl && nameEl.textContent === file.name) {
+                    item.classList.add('uploaded');
+                    break;
+                }
+            }
+        }
+
+        // 窗口大小改变时重新定位所有面板
+        window.addEventListener('resize', function() {
+            if (floatCtrlWrap.classList.contains('show')) {
+                positionPanel();
+            }
+            if (floatWrap.classList.contains('show')) {
+                positionFloatWrap();
+            }
+            if (floatKbdWrap.classList.contains('show')) {
+                positionFloatKbdWrap();
+            }
+        });
+
+        // ===== 悬浮按钮拖拽功能 =====
+        (function() {
+            const STORAGE_KEY = 'touchpad_float_positions';
+            let dragState = null;
+
+            // 加载保存的位置
+            function loadPositions() {
+                try {
+                    const saved = localStorage.getItem(STORAGE_KEY);
+                    if (saved) {
+                        const positions = JSON.parse(saved);
+                        ['floatBtn', 'floatKbdBtn', 'floatCtrlBtn'].forEach(btnId => {
+                            if (positions[btnId]) {
+                                const btn = document.getElementById(btnId);
+                                if (btn) {
+                                    btn.style.left = positions[btnId].x + 'px';
+                                    btn.style.top = positions[btnId].y + 'px';
+                                    btn.style.right = 'auto';
+                                }
+                            }
+                        });
+                    }
+                } catch (e) { console.error('Failed to load positions:', e); }
+            }
+
+            // 保存位置
+            function savePosition(btnId, x, y) {
+                try {
+                    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+                    saved[btnId] = { x, y };
+                    localStorage.setItem(STORAGE_KEY, JSON.stringify(saved));
+                } catch (e) { console.error('Failed to save position:', e); }
+            }
+
+            // 创建拖拽处理器
+            function makeDraggable(btn, btnId) {
+                function onDragStart(e) {
+                    e.stopPropagation();
+                    
+                    const clientX = e.clientX || (e.touches && e.touches[0].clientX);
+                    const clientY = e.clientY || (e.touches && e.touches[0].clientY);
+                    
+                    dragState = {
+                        btn,
+                        btnId,
+                        startX: clientX,
+                        startY: clientY,
+                        startLeft: btn.offsetLeft,
+                        startTop: btn.offsetTop
+                    };
+
+                    // 绑定全局移动和结束事件
+                    document.addEventListener('mousemove', onDragMove);
+                    document.addEventListener('mouseup', onDragEnd);
+                    document.addEventListener('touchmove', onDragMove, { passive: true });
+                    document.addEventListener('touchend', onDragEnd);
+                }
+
+                function onDragMove(e) {
+                    if (!dragState) return;
+
+                    const clientX = e.clientX || (e.touches && e.touches[0].clientX);
+                    const clientY = e.clientY || (e.touches && e.touches[0].clientY);
+
+                    const dx = clientX - dragState.startX;
+                    const dy = clientY - dragState.startY;
+
+                    let newLeft = dragState.startLeft + dx;
+                    let newTop = dragState.startTop + dy;
+
+                    // 边界检查
+                    const btnRect = dragState.btn.getBoundingClientRect();
+                    const maxX = window.innerWidth - btnRect.width;
+                    const maxY = window.innerHeight - btnRect.height;
+
+                    newLeft = Math.max(0, Math.min(newLeft, maxX));
+                    newTop = Math.max(0, Math.min(newTop, maxY));
+
+                    dragState.btn.style.left = newLeft + 'px';
+                    dragState.btn.style.top = newTop + 'px';
+                }
+
+                function onDragEnd(e) {
+                    if (!dragState) return;
+
+                    const rect = dragState.btn.getBoundingClientRect();
+                    savePosition(dragState.btnId, rect.left, rect.top);
+
+                    // 如果对应面板是打开的，重新定位面板
+                    if (dragState.btnId === 'floatBtn' && floatWrap.classList.contains('show')) {
+                        positionFloatWrap();
+                    } else if (dragState.btnId === 'floatKbdBtn' && floatKbdWrap.classList.contains('show')) {
+                        positionFloatKbdWrap();
+                    } else if (dragState.btnId === 'floatCtrlBtn' && floatCtrlWrap.classList.contains('show')) {
+                        positionPanel();
+                    }
+
+                    // 解绑全局事件
+                    document.removeEventListener('mousemove', onDragMove);
+                    document.removeEventListener('mouseup', onDragEnd);
+                    document.removeEventListener('touchmove', onDragMove);
+                    document.removeEventListener('touchend', onDragEnd);
+
+                    dragState = null;
+                }
+
+                btn.addEventListener('mousedown', onDragStart);
+                btn.addEventListener('touchstart', onDragStart, { passive: true });
+            }
+
+            // 初始化三个按钮的拖拽
+            makeDraggable(document.getElementById('floatBtn'), 'floatBtn');
+            makeDraggable(document.getElementById('floatKbdBtn'), 'floatKbdBtn');
+            makeDraggable(document.getElementById('floatCtrlBtn'), 'floatCtrlBtn');
+
+            // 页面加载后恢复位置
+            loadPositions();
+        })();
+    </script>
+</body>
+</html>
